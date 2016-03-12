@@ -19,10 +19,18 @@ def get_people_with_hashtags(tweet):
         author = data['user']['screen_name']
         mentions = ["@" + user["screen_name"] for user in data['entities']['user_mentions']]
         people = mentions + [author]
-        return (tuple(people), tuple(hashtags))
+        return (people, hashtags)
     except KeyError:
         return ()
 
+def filter_out_unicode(x):
+    result = []
+    for hashtag in x[1]:
+        try:
+            result.append(str(hashtag))
+        except UnicodeEncodeError:
+            pass
+    return result
 
 if __name__ == "__main__":
     zkQuorum = "localhost:2181"
@@ -43,7 +51,12 @@ if __name__ == "__main__":
     # Tweet processing
     lines = tweets.map(lambda x: get_people_with_hashtags(x[1])).filter(lambda x: len(x)>0)
     lines.cache()
-    lines.pprint()
+    
+    #hashtags = lines.filter(lambda x: isinstance(x[1], str))
+    hashtags = lines.flatMap(filter_out_unicode).map(lambda x: (x, 1)).reduceByKey(lambda x,y: x+y)
+    hashtags = hashtags.map(lambda (k,v): (v,k)).transform(lambda x: x.sortByKey(False))
+    hashtags = hashtags.transform(lambda x: x.count())
+    hashtags.pprint()
 
     ssc.start()
     ssc.awaitTermination()
