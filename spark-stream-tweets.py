@@ -9,13 +9,16 @@ from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
 
-def get_people_and_hashtags(tweet):
+def get_people_with_hashtags(tweet):
     data = json.loads(tweet)
     try:
-        author = "@" + data['user']['screen_name']
-        mentions = [user["screen_name"] for user in data['entities']['user_mentions']]
-        people = mentions + [author]
         hashtags = ["#" + hashtag["text"] for hashtag in data['entities']['hashtags']]
+        # Tweets without hashtags are a waste of time
+        if len(hashtags) == 0:
+            return ()
+        author = data['user']['screen_name']
+        mentions = ["@" + user["screen_name"] for user in data['entities']['user_mentions']]
+        people = mentions + [author]
         return (tuple(people), tuple(hashtags))
     except KeyError:
         return ()
@@ -38,8 +41,8 @@ if __name__ == "__main__":
     tweets = KafkaUtils.createStream(ssc, zkQuorum, "spark-streaming-consumer", {topic: 1})
 
     # Tweet processing
-    lines = tweets.map(lambda x: get_people_and_hashtags(x[1])).filter(lambda x: len(x)>0)
-    lines.persist()
+    lines = tweets.map(lambda x: get_people_with_hashtags(x[1])).filter(lambda x: len(x)>0)
+    lines.cache()
     lines.pprint()
 
     ssc.start()
