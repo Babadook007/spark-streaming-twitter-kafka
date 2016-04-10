@@ -54,19 +54,22 @@ if __name__ == "__main__":
     ssc = StreamingContext(sc, seconds_to_run)
 
     tweets = KafkaUtils.createStream(ssc, zkQuorum, "spark-streaming-consumer", {topic: 1})
-
     # Tweet processing. 
     # Kafka passes a tuple of message ID and message text. Message text is the tweet text.
     # All tweets are turned into ([people],[hashtags]) and tweets without hashtags are filtered
     # out.
     lines = tweets.map(lambda x: get_people_with_hashtags(x[1])).filter(lambda x: len(x)>0)
     lines.cache()
-    
-    #hashtags = lines.filter(lambda x: isinstance(x[1], str))
-    hashtags = lines.flatMap(filter_out_unicode).map(lambda x: (x, 1)).reduceByKey(lambda x,y: x+y)
-    hashtags = hashtags.map(lambda (k,v): (v,k)).transform(lambda x: x.sortByKey(False))
-    hashtags = hashtags.transform(lambda x: x.count())
-    hashtags.pprint()
+    hashtags = lines.flatMap(filter_out_unicode).map(lambda i: (i, 1)).reduceByKey(lambda x,y: x+y)
+    just_hashtags = hashtags.map(lambda (k,v): (v,k))
+    top_hashtags = just_hashtags.filter(lambda x: x[0] > 2)
+# This line causes exponential processing increases
+#    sorted_hashtags = just_hashtags.transform(lambda x: x.sortByKey(False))
+#    top_hashtags.pprint()
+
+    # Get authors
+   # lines.pprint()
+
 
     ssc.start()
     ssc.awaitTermination()
