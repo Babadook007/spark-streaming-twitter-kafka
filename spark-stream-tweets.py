@@ -10,6 +10,10 @@ from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
 
 def get_people_with_hashtags(tweet):
+    """
+    Returns (people, hashtags) if successful, otherwise returns empty tuple. All users
+    except author have an @ sign appended to the front.
+    """
     data = json.loads(tweet)
     try:
         hashtags = ["#" + hashtag["text"] for hashtag in data['entities']['hashtags']]
@@ -24,6 +28,9 @@ def get_people_with_hashtags(tweet):
         return ()
 
 def filter_out_unicode(x):
+    """
+    Pass in a list of (authors, hashtags) and return a list of hashtags that are not unicode
+    """
     result = []
     for hashtag in x[1]:
         try:
@@ -48,7 +55,10 @@ if __name__ == "__main__":
 
     tweets = KafkaUtils.createStream(ssc, zkQuorum, "spark-streaming-consumer", {topic: 1})
 
-    # Tweet processing
+    # Tweet processing. 
+    # Kafka passes a tuple of message ID and message text. Message text is the tweet text.
+    # All tweets are turned into ([people],[hashtags]) and tweets without hashtags are filtered
+    # out.
     lines = tweets.map(lambda x: get_people_with_hashtags(x[1])).filter(lambda x: len(x)>0)
     lines.cache()
     
