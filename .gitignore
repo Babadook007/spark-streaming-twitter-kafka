@@ -1,6 +1,10 @@
 # Ignore configuration file for Twitter
 twitter_config.py
 
+# Ignore vi swap files
+.swp
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
