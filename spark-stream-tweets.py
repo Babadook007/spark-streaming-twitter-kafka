@@ -69,9 +69,9 @@ if __name__ == "__main__":
 
     # User-supplied command arguments
     if len(sys.argv) != 3:
-        print("Usage: spark-stream-tweets.py <n_top_hashtags> <seconds_to_run>")
+        print("Usage: spark-stream-tweets.py <min_hashtag_counts> <seconds_to_run>")
         exit(-1)
-    n_top_hashtags = int(sys.argv[1])
+    min_hashtag_counts = int(sys.argv[1])
     seconds_to_run = int(sys.argv[2])
 
     sc = SparkContext("local[2]", appName="TwitterStreamKafka")
@@ -96,16 +96,10 @@ if __name__ == "__main__":
     # Reduce by hashtag key into a list of authors and a count of tweets.
     hash_tag_authors_and_counts = flat_hashtags.reduceByKey(lambda a, b: (a[0] + b[0], a[1] | b[1]))
 
-    hash_tag_authors_and_counts.pprint()
-#    just_hashtags = hashtags.map(lambda (k,v): (v,k))
-#    top_hashtags = just_hashtags.filter(lambda x: x[0] > 2)
-# This line causes exponential processing increases
-#    sorted_hashtags = just_hashtags.transform(lambda x: x.sortByKey(False))
-#    top_hashtags.pprint()
+    # Only keep hashtags with more than a certain number of values
+    top_hashtags = hash_tag_authors_and_counts.filter(lambda x: x[1][0] >= min_hashtag_counts)
 
-    # Get authors
-   # lines.pprint()
-
+    top_hashtags.pprint()
 
     ssc.start()
     ssc.awaitTermination()
