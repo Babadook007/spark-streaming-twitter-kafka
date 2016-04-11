@@ -61,8 +61,6 @@ def flatten(x):
     return all_combinations 
 
 
-
-
 if __name__ == "__main__":
     zkQuorum = "localhost:2181"
     topic = "twitter-stream"
