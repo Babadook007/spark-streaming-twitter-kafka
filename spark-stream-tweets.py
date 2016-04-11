@@ -31,13 +31,37 @@ def filter_out_unicode(x):
     """
     Pass in a list of (authors, hashtags) and return a list of hashtags that are not unicode
     """
-    result = []
+    hashtags = []
     for hashtag in x[1]:
         try:
-            result.append(str(hashtag))
+            hashtags.append(str(hashtag))
         except UnicodeEncodeError:
             pass
-    return result
+    return (x[0], hashtags)
+
+def flatten(x):
+    """
+    Input:
+    ([people],[hashtags]).
+
+    Output:
+    [(hashtag, (main_author_flag, {person})),
+     ...]
+    """
+    all_combinations = []
+
+    people = x[0]
+    hashtags = x[1]
+
+    for person in people:
+        for hashtag in hashtags:
+            main_author_flag = 0 if "@" in person else 1
+            all_combinations.append((hashtag, (main_author_flag, {person})))
+    
+    return all_combinations 
+
+
+
 
 if __name__ == "__main__":
     zkQuorum = "localhost:2181"
@@ -58,11 +82,23 @@ if __name__ == "__main__":
     # Kafka passes a tuple of message ID and message text. Message text is the tweet text.
     # All tweets are turned into ([people],[hashtags]) and tweets without hashtags are filtered
     # out.
+
+    # Returns ([people], [hashtags])
     lines = tweets.map(lambda x: get_people_with_hashtags(x[1])).filter(lambda x: len(x)>0)
-    lines.cache()
-    hashtags = lines.flatMap(filter_out_unicode).map(lambda i: (i, 1)).reduceByKey(lambda x,y: x+y)
-    just_hashtags = hashtags.map(lambda (k,v): (v,k))
-    top_hashtags = just_hashtags.filter(lambda x: x[0] > 2)
+
+    # Filters out unicode hashtags
+    hashtags = lines.map(filter_out_unicode)
+
+    # Make all possible combinations --> (hashtag, (main_author, {person})), where main_author == 1
+    # if it is the tweet author
+    flat_hashtags = hashtags.flatMap(flatten)
+
+    # Reduce by hashtag key into a list of authors and a count of tweets.
+    hash_tag_authors_and_counts = flat_hashtags.reduceByKey(lambda a, b: (a[0] + b[0], a[1] | b[1]))
+
+    hash_tag_authors_and_counts.pprint()
+#    just_hashtags = hashtags.map(lambda (k,v): (v,k))
+#    top_hashtags = just_hashtags.filter(lambda x: x[0] > 2)
 # This line causes exponential processing increases
 #    sorted_hashtags = just_hashtags.transform(lambda x: x.sortByKey(False))
 #    top_hashtags.pprint()
